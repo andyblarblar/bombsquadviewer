@@ -1,0 +1,16 @@
+[package]
+name = "bombsquadviewer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+opencv = "0.66.0"
+anyhow = "1.0.62"
+
+[[bin]]
+name = "server"
+path = "src/server.rs"
+
+[[bin]]
+name = "client"
+path = "src/client.rs"
