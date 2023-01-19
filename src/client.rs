@@ -1,6 +1,8 @@
+use std::cmp::max;
 use std::ffi::c_void;
 use std::io::Read;
 use std::net::TcpStream;
+use std::time::Instant;
 
 use opencv::core::CV_8UC3;
 use opencv::highgui::{imshow, named_window, wait_key, WINDOW_FREERATIO};
@@ -20,6 +22,8 @@ fn main() -> anyhow::Result<()> {
 
     unsafe {
         loop {
+            let start_time = Instant::now();
+
             // Get size info on first transmission
             if is_first_trans {
                 let mut buf = [0u8; 4];
@@ -51,9 +55,15 @@ fn main() -> anyhow::Result<()> {
             )?;
             imshow("main", &mat_buf)?;
 
-            if wait_key(5)? == 0x81 {
+            if wait_key(1)? == 0x81 {
                 break;
             }
+
+            // Print fps
+            println!(
+                "FPS: {}",
+                (1.0 / max((Instant::now() - start_time).as_millis(), 1) as f64) * 1000.0
+            );
         }
     }
 
