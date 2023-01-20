@@ -49,7 +49,7 @@ fn main() -> anyhow::Result<()> {
     let mut dims: (i32, i32) = (0, 0);
 
     unsafe {
-        loop {
+        'main_loop: loop {
             let start_time = Instant::now();
 
             // Get size info on first transmission
@@ -74,12 +74,23 @@ fn main() -> anyhow::Result<()> {
             }
 
             // Get next frame
-            if socket.recv(&mut frame_buffer).is_err() {
-                continue;
-            }
+            {
+                let mut bytes_read = 0;
 
-            // Acknowledge we've received the frame
-            socket.send(&[0])?;
+                // Segment reconstruction is synchronised to avoid out of order segments
+                while bytes_read < frame_buffer.len() {
+                    let res = socket.recv(&mut frame_buffer[bytes_read..]);
+                    match res {
+                        Err(_) => continue 'main_loop,
+                        Ok(count) => bytes_read += count,
+                    }
+                    
+                    // Ack
+                    socket.send(&syn_buf)?;
+
+                    println!("Bytes read: {}", bytes_read);
+                }
+            }
 
             let mat_buf = Mat::new_rows_cols_with_data(
                 dims.0,

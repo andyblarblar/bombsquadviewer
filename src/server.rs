@@ -125,17 +125,20 @@ fn main() -> anyhow::Result<()> {
 
             let bytes = frame.to_bytes();
 
-            // Send frame data
-            if let Err(err) = stream.send(bytes) {
-                println!("Socket err: {}", err);
-                break;
-            }
+            // Segment to max UDP packet size
+            for (i, segment) in bytes.chunks(65535).enumerate() {
+                if let Err(err) = stream.send(segment) {
+                    println!("Socket err: {}", err);
+                    break;
+                }
 
-            // Wait for ack (lets us know if client is connected, also serves as flow control)
-            let mut ack_buf = [0u8; 1];
-            if stream.recv(&mut ack_buf).is_err() {
-                println!("Timed out waiting for ack");
-                break;
+                // Wait for ack to synchronise with client and catch disconnects
+                if stream.recv(&mut syn_buf).is_err() {
+                    println!("Timed out waiting for ack");
+                    break;
+                }
+
+                println!("sent segment {}", i);
             }
         }
 
