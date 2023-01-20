@@ -6,17 +6,46 @@ use uvc::Frame;
 fn main() -> anyhow::Result<()> {
     let server_ip: Vec<String> = std::env::args().take(2).collect();
 
+    if server_ip.len() < 2 {
+        println!("Either input an IP:Port to host server, or enter 'format' to view formats");
+        return Ok(());
+    }
+
     // Find webcam
     let ctx = uvc::Context::new().expect("Could not get context");
     let dev = ctx
         .find_device(None, None, None)
         .expect("Could not find device");
     let dev = dev.open().expect("Could not open device");
+
+    // List formats if requested
+    if server_ip[1] == "format" {
+        for format in dev.supported_formats() {
+            println!("With format type: {:?}", format.subtype(),);
+
+            for format in format.supported_formats() {
+                println!(
+                    "{}x{} fps: {:?}",
+                    format.width(),
+                    format.height(),
+                    format
+                        .intervals_duration()
+                        .iter()
+                        .map(|s| (1.0 / s.as_millis() as f64 * 1000.0).round())
+                        .collect::<Vec<f64>>()
+                );
+            }
+            println!();
+        }
+        return Ok(());
+    }
+
+    // Setup stream
     let format = uvc::StreamFormat {
         width: 640,
         height: 480,
         fps: 30,
-        format: uvc::FrameFormat::YUYV,
+        format: uvc::FrameFormat::Uncompressed,
     };
     let mut streamh = dev
         .get_stream_handle_with_format(format)
@@ -31,7 +60,11 @@ fn main() -> anyhow::Result<()> {
         .start_stream(
             |frame, sender| {
                 let sender = sender.lock().unwrap();
-                sender.send(Arc::new(frame.to_bgr().unwrap())).unwrap();
+                sender
+                    .send(Arc::new(
+                        frame.to_bgr().expect("Format does not support BGR"),
+                    ))
+                    .unwrap();
             },
             send,
         )
