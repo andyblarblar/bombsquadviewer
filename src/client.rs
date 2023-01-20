@@ -1,8 +1,8 @@
 use std::cmp::max;
 use std::ffi::c_void;
 use std::io::Read;
-use std::net::TcpStream;
-use std::time::Instant;
+use std::net::{TcpStream, UdpSocket};
+use std::time::{Duration, Instant};
 
 use opencv::core::CV_8UC3;
 use opencv::highgui::{imshow, named_window, wait_key, WINDOW_FREERATIO};
@@ -18,7 +18,30 @@ fn main() -> anyhow::Result<()> {
 
     named_window("main", WINDOW_FREERATIO)?;
 
-    let mut stream = TcpStream::connect(server_ip[1].clone())?;
+    // Create socket
+    let mut syn_buf = [0u8; 2];
+    let socket = UdpSocket::bind("0.0.0.0:34343")?;
+    println!("Bound socket to: {:?}", socket.local_addr()?);
+
+    socket.set_write_timeout(Some(Duration::from_secs(2)))?;
+    socket.set_read_timeout(Some(Duration::from_secs(2)))?;
+
+    socket.connect(server_ip[1].clone())?;
+
+    println!("Beginning handshake...");
+
+    // Now we need to do our own three step handshake
+
+    // Send syn
+    socket.send(&syn_buf)?;
+    println!("SYN");
+    // Recv ack
+    socket.recv(&mut syn_buf)?;
+    println!("ACK");
+    // Send ack
+    socket.send(&syn_buf)?;
+    println!("ACK");
+
     println!("Connected!");
 
     let mut frame_buffer: Box<[u8]> = Box::default();
@@ -34,9 +57,9 @@ fn main() -> anyhow::Result<()> {
                 let mut buf = [0u8; 4];
 
                 // Get rows and cols for sizing things
-                stream.read_exact(&mut buf)?;
+                socket.recv(&mut buf)?;
                 let rows = i32::from_be_bytes(buf);
-                stream.read_exact(&mut buf)?;
+                socket.recv(&mut buf)?;
                 let cols = i32::from_be_bytes(buf);
 
                 dims = (rows, cols);
@@ -47,9 +70,13 @@ fn main() -> anyhow::Result<()> {
                 is_first_trans = false;
             }
 
-            if stream.read_exact(&mut frame_buffer).is_err() {
+            // Get next frame
+            if socket.recv(&mut frame_buffer).is_err() {
                 continue;
             }
+
+            // Acknowledge we've received the frame
+            socket.send(&[0])?;
 
             let mat_buf = Mat::new_rows_cols_with_data(
                 dims.0,

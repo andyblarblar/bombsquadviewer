@@ -1,6 +1,7 @@
 use std::io::Write;
-use std::net::TcpListener;
+use std::net::{TcpListener, UdpSocket};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use uvc::Frame;
 
 fn main() -> anyhow::Result<()> {
@@ -71,27 +72,48 @@ fn main() -> anyhow::Result<()> {
         .unwrap();
 
     // Start server
-    let stream = TcpListener::bind(server_ip[1].clone())?;
+    let stream = UdpSocket::bind(server_ip[1].clone())?;
+    stream.set_write_timeout(Some(Duration::from_secs(2)))?;
 
     println!("Init!");
 
     loop {
-        // Wait for connection
-        let (mut remote, addr) = stream.accept()?;
+        // Allow for blocking when waiting for new connection
+        stream.set_read_timeout(None)?;
+
+        // Wait for connection handshake initializer
+        let mut syn_buf = [0u8; 2];
+        let (_, addr) = stream.recv_from(&mut syn_buf)?;
+
+        println!("SYN");
+
+        stream.set_read_timeout(Some(Duration::from_secs(2)))?;
+
+        // Acknowledge handshake and then wait for second ack
+        if stream
+            .connect(addr)
+            .and_then(|_| stream.send(&syn_buf))
+            .and_then(|_| stream.recv(&mut syn_buf))
+            .is_err()
+        {
+            println!("Peer failed to complete handshake");
+            continue;
+        }
 
         println!("Connected to address: {:?}", addr);
 
         let mut is_first_trans = true;
 
+        // Transmission loop
         while let Ok(frame) = rcv.recv() {
             // Transmit size on first connection
             if is_first_trans {
                 let rows = (frame.height()).to_be_bytes();
                 let cols = (frame.width()).to_be_bytes();
 
-                if remote
-                    .write_all(&rows)
-                    .and_then(|_| remote.write_all(&cols))
+                if stream
+                    .send(&rows[..])
+                    .and_then(|_| stream.send(&cols[..]))
                     .is_err()
                 {
                     break;
@@ -102,7 +124,16 @@ fn main() -> anyhow::Result<()> {
 
             let bytes = frame.to_bytes();
 
-            if remote.write_all(bytes).is_err() {
+            // Send frame data
+            if stream.send(bytes).is_err() {
+                println!("Socket err");
+                break;
+            }
+
+            // Wait for ack (lets us know if client is connected, also serves as flow control)
+            let mut ack_buf = [0u8; 1];
+            if stream.recv(&mut ack_buf).is_err() {
+                println!("Timed out waiting for ack");
                 break;
             }
         }
