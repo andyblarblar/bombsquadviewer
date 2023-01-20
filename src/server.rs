@@ -105,7 +105,7 @@ fn main() -> anyhow::Result<()> {
         let mut is_first_trans = true;
 
         // Transmission loop
-        while let Ok(frame) = rcv.recv() {
+        'main_loop: while let Ok(frame) = rcv.recv() {
             // Transmit size on first connection
             if is_first_trans {
                 let rows = (frame.height()).to_be_bytes();
@@ -125,17 +125,17 @@ fn main() -> anyhow::Result<()> {
 
             let bytes = frame.to_bytes();
 
-            // Segment to max UDP packet size
-            for (i, segment) in bytes.chunks(65535).enumerate() {
+            // Segment to MTU size
+            for (i, segment) in bytes.chunks(1500).enumerate() {
                 if let Err(err) = stream.send(segment) {
                     println!("Socket err: {}", err);
-                    break;
+                    break 'main_loop;
                 }
 
                 // Wait for ack to synchronise with client and catch disconnects
                 if stream.recv(&mut syn_buf).is_err() {
                     println!("Timed out waiting for ack");
-                    break;
+                    break 'main_loop;
                 }
 
                 println!("sent segment {}", i);

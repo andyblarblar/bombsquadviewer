@@ -84,11 +84,11 @@ fn main() -> anyhow::Result<()> {
                         Err(_) => continue 'main_loop,
                         Ok(count) => bytes_read += count,
                     }
-                    
+
                     // Ack
                     socket.send(&syn_buf)?;
 
-                    println!("Bytes read: {}", bytes_read);
+                    //println!("Bytes read: {}", bytes_read);
                 }
             }
 
