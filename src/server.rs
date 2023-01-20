@@ -1,5 +1,4 @@
-use std::io::Write;
-use std::net::{TcpListener, UdpSocket};
+use std::net::UdpSocket;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use uvc::Frame;
@@ -126,7 +125,7 @@ fn main() -> anyhow::Result<()> {
             let bytes = frame.to_bytes();
 
             // Segment to MTU size
-            for (i, segment) in bytes.chunks(1500).enumerate() {
+            for segment in bytes.chunks(1500) {
                 if let Err(err) = stream.send(segment) {
                     println!("Socket err: {}", err);
                     break 'main_loop;
