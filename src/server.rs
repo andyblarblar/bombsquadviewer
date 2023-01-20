@@ -137,8 +137,6 @@ fn main() -> anyhow::Result<()> {
                     println!("Timed out waiting for ack");
                     break 'main_loop;
                 }
-
-                println!("sent segment {}", i);
             }
         }
 

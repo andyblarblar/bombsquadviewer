@@ -1,7 +1,6 @@
 use std::cmp::max;
 use std::ffi::c_void;
-use std::io::Read;
-use std::net::{TcpStream, UdpSocket};
+use std::net::{UdpSocket};
 use std::time::{Duration, Instant};
 
 use opencv::core::CV_8UC3;
@@ -87,8 +86,6 @@ fn main() -> anyhow::Result<()> {
 
                     // Ack
                     socket.send(&syn_buf)?;
-
-                    //println!("Bytes read: {}", bytes_read);
                 }
             }
 
