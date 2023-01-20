@@ -11,6 +11,11 @@ use opencv::prelude::*;
 fn main() -> anyhow::Result<()> {
     let server_ip: Vec<String> = std::env::args().take(2).collect();
 
+    if server_ip.len() < 2 {
+        println!("Input IP:Port to connect to server");
+        return Ok(());
+    }
+
     named_window("main", WINDOW_FREERATIO)?;
 
     let mut stream = TcpStream::connect(server_ip[1].clone())?;
