@@ -119,15 +119,15 @@ fn main() -> anyhow::Result<()> {
                 {
                     break;
                 }
-                
+
                 is_first_trans = false;
             }
 
             let bytes = frame.to_bytes();
 
             // Send frame data
-            if stream.send(bytes).is_err() {
-                println!("Socket err");
+            if let Err(err) = stream.send(bytes) {
+                println!("Socket err: {}", err);
                 break;
             }
 
