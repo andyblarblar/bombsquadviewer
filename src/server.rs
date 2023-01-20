@@ -114,11 +114,12 @@ fn main() -> anyhow::Result<()> {
                 if stream
                     .send(&rows[..])
                     .and_then(|_| stream.send(&cols[..]))
+                    .and_then(|_| stream.recv(&mut syn_buf))
                     .is_err()
                 {
                     break;
                 }
-
+                
                 is_first_trans = false;
             }
 

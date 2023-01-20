@@ -62,6 +62,9 @@ fn main() -> anyhow::Result<()> {
                 socket.recv(&mut buf)?;
                 let cols = i32::from_be_bytes(buf);
 
+                // Ack
+                socket.send(&syn_buf)?;
+
                 dims = (rows, cols);
                 // Allocate frame buffer
                 let vec = Vec::from_iter(std::iter::repeat(0).take((rows * cols * 3) as usize));
